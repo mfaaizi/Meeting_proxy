@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Proxy - D-ID Avatar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="file"], textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .btn-record {
+            background-color: #28a745;
+        }
+        .btn-record:hover {
+            background-color: #218838;
+        }
+        .btn-stop {
+            background-color: #dc3545;
+        }
+        .btn-stop:hover {
+            background-color: #c82333;
+        }
+        .btn-pipeline {
+            background-color: #6610f2;
+            width: 100%;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+        .btn-pipeline:hover {
+            background-color: #520dc2;
+        }
+        #status, #recordStatus, #gptStatus, #pipelineStatus {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #333;
+        }
+        #videoPlayer {
+            margin-top: 20px;
+            width: 100%;
+            display: none;
+            border-radius: 8px;
+        }
+        #imagePreview {
+            margin-top: 10px;
+            max-width: 200px;
+            max-height: 200px;
+            display: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .small-text {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 2px;
+        }
+        hr {
+            margin: 30px 0;
+            border: 0;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Quick Join Section -->
+    <div style="background: #1a1a2e; padding: 20px;
+                border-radius: 10px; margin-bottom: 20px;">
+
+        <h2 style="color: white; margin-top: 0;">🚀 Quick Join with Library Videos</h2>
+        <p style="color: #ddd;">Join meeting instantly using pre-recorded responses.
+           No pipeline needed!</p>
+
+        <label style="color: white;">Your Context (Who you are):</label><br>
+        <textarea id="quickContext" rows="3"
+                  style="width:100%; margin: 8px 0; background: #2a2a4a; color: white; border: 1px solid #444;"
+                  placeholder="I am Rafeh, a final year software engineering student...">I am Rafeh, a final year software engineering student specializing in AI. My FYP is a meeting proxy system.</textarea>
+
+        <label style="color: white;">Your Cloudinary Photo URL:</label><br>
+        <input type="text" id="quickImageUrl"
+               style="width:100%; margin: 8px 0; background: #2a2a4a; color: white; border: 1px solid #444;"
+               placeholder="https://res.cloudinary.com/..."/>
+
+        <button onclick="quickJoinMeet()"
+                id="quickJoinBtn"
+                style="background: #00b4d8; color: white;
+                       padding: 12px 24px; border: none;
+                       border-radius: 8px; font-size: 16px;
+                       cursor: pointer; width: 100%;
+                       margin-top: 8px;">
+            🎯 Join Meet with Library Videos
+        </button>
+
+        <p id="quickJoinStatus" style="margin-top: 8px; color: white;"></p>
+
+        <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; color: #aaa;">
+                💡 How to get your photo URL
+            </summary>
+            <p style="color: #aaa; font-size: 13px; margin-top: 5px;">
+                Run the full pipeline once to upload your photo,
+                then copy the image URL from the browser console
+                (lastImageUrl variable). Or upload to
+                res.cloudinary.com manually.
+            </p>
+        </details>
+    </div>
+
+    <h2>Generate AI Avatar Video</h2>
+
+    <!-- Input for the Photo File -->
+    <div class="form-group">
+        <label for="photo">Upload Photo</label>
+        <input type="file" id="photo" accept="image/png, image/jpeg">
+        <div class="small-text">Supported: JPG, PNG (max 10MB)</div>
+        <img id="imagePreview" alt="Photo Preview">
+    </div>
+
+    <!-- Textarea for the text the avatar will speak -->
+    <div class="form-group">
+        <label for="textInput">Text to Speak</label>
+        <textarea id="textInput" rows="4" placeholder="Enter the text for the avatar to speak..."></textarea>
+    </div>
+
+    <!-- Button to trigger video generation -->
+    <button onclick="generateVideo()">Generate Video</button>
+
+    <!-- Status message paragraph -->
+    <p id="status"></p>
+
+    <!-- Hidden video element that will display the result -->
+    <video id="videoPlayer" controls autoplay></video>
+
+    <hr>
+
+    <h2>🎤 Voice Question Capture</h2>
+
+    <div class="form-group">
+        <button id="startBtn" class="btn-record" onclick="startRecording()">Start Recording</button>
+        <button id="stopBtn" class="btn-stop" onclick="stopRecording()" disabled>Stop Recording</button>
+        <p id="recordStatus">Click "Start Recording" to begin.</p>
+    </div>
+
+    <div class="form-group">
+        <label for="transcript">Transcript (Read-only)</label>
+        <textarea id="transcript" rows="3" readonly placeholder="Transcription will appear here..."></textarea>
+    </div>
+    
+    <!-- Hidden audio element for playback if needed -->
+    <audio id="audioPlayback" controls style="display:none;"></audio>
+
+    <hr>
+
+    <h2>🤖 GPT-4o Answer Generation</h2>
+
+    <div class="form-group">
+        <label for="contextInput">Your Context (Who you are)</label>
+        <textarea id="contextInput" rows="4" placeholder="I am Rafeh, a software engineering student specializing in AI/ML. I have experience in Flask, Python, and machine learning projects..."></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="answerOutput">Generated Answer (Read-only)</label>
+        <textarea id="answerOutput" rows="4" readonly placeholder="The AI answer will appear here..."></textarea>
+    </div>
+
+    <button onclick="generateAnswer()">Generate Answer from Transcript</button>
+    <p id="gptStatus"></p>
+
+    <hr>
+
+    <h2>🚀 Full Pipeline Test</h2>
+    <p>This runs the entire flow: Photo + Context + Voice Question → Final Video</p>
+    
+    <button onclick="pregenerateLibrary()" id="pregenBtn" class="btn-pipeline" style="background-color: #17a2b8;">
+        📚 Pre-generate Response Library
+    </button>
+    <p id="pregenStatus"></p>
+    
+    <button class="btn-pipeline" onclick="runFullPipeline()">Run Full Pipeline</button>
+    <p id="pipelineStatus"></p>
+    <button id="sendToZoomBtn" class="btn-pipeline" style="display:none;">Send to Zoom Meeting</button>
+    <button id="joinMeetBtn" class="btn-pipeline" style="display:none;" onclick="joinMeeting()">🤖 Join Google Meet as Avatar</button>
+    <!-- Stop Bot button: hidden until the bot is running.
+         Clicking it calls /stop-bot which halts the listener and closes Chrome. -->
+    <button id="stopBotBtn" class="btn-pipeline btn-stop" style="display:none;" onclick="stopBot()">🛑 Stop Bot</button>
+    <p id="meetStatus"></p>
+
+
+    <script>
+        // --- PHOTO PREVIEW LOGIC ---
+        document.getElementById('photo').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('imagePreview');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+            }
+        });
+
+        // --- GLOBAL STATE VARIABLES ---
+        // Stores the most recent D-ID video URL so Meet / Zoom buttons can reuse it.
+        let lastPipelineVideoUrl = null;
+        // Alias used specifically by the Google Meet join flow.
+        let lastVideoUrl = null;
+        // Stores the Cloudinary image URL set after upload so the real-time
+        // pipeline can regenerate avatar videos without re-uploading the photo.
+        let lastImageUrl = null;
+
+        async function generateVideo() {
+            const fileInput = document.getElementById('photo');
+            const file = fileInput.files[0];
+            const textInput = document.getElementById('textInput').value;
+            const statusEl = document.getElementById('status');
+            const videoPlayer = document.getElementById('videoPlayer');
+
+            if (!file) {
+                statusEl.textContent = "Please select a photo to upload.";
+                statusEl.style.color = "red";
+                return;
+            }
+            if (!textInput) {
+                statusEl.textContent = "Please enter text to speak.";
+                statusEl.style.color = "red";
+                return;
+            }
+
+            statusEl.textContent = "Uploading photo and generating avatar... (This may take a minute)";
+            statusEl.style.color = "blue";
+            videoPlayer.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('text', textInput);
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Save the latest generated video URL so Zoom and Google Meet buttons can reuse it.
+                    lastPipelineVideoUrl = data.video_url;
+                    // Save the latest generated video URL in the simplified variable used by the Meet join flow.
+                    lastVideoUrl = data.video_url;
+                    // Save the Cloudinary image URL so the real-time pipeline can regenerate
+                    // D-ID videos for new questions without re-uploading the photo each time.
+                    if (data.image_url) lastImageUrl = data.image_url;
+
+                    statusEl.textContent = "Video generated successfully!";
+                    statusEl.style.color = "green";
+                    videoPlayer.src = data.video_url;
+                    videoPlayer.style.display = 'block';
+
+                    // Show the Google Meet button even for the basic generate-video flow.
+                    const meetBtn = document.getElementById('joinMeetBtn');
+                    meetBtn.style.display = 'inline-block';
+                    meetBtn.onclick = joinMeeting;
+                } else {
+                    statusEl.textContent = "Error: " + data.error;
+                    statusEl.style.color = "red";
+                }
+            } catch (error) {
+                statusEl.textContent = "An unexpected error occurred: " + error.message;
+                statusEl.style.color = "red";
+            }
+        }
+
+        // --- AUDIO RECORDING LOGIC (PHASE 3) ---
+        let mediaRecorder;
+        let audioChunks = [];
+
+        async function startRecording() {
+            const recordStatus = document.getElementById('recordStatus');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audioPlayback = document.getElementById('audioPlayback');
+                    audioPlayback.src = audioUrl;
+                    
+                    recordStatus.textContent = "Transcribing audio...";
+                    recordStatus.style.color = "blue";
+                    
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'recording.webm');
+                    
+                    try {
+                        const response = await fetch('/transcribe', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            document.getElementById('transcript').value = data.transcript;
+                            recordStatus.textContent = "Transcription complete!";
+                            recordStatus.style.color = "green";
+                        } else {
+                            recordStatus.textContent = "Error: " + data.error;
+                            recordStatus.style.color = "red";
+                        }
+                    } catch (error) {
+                        recordStatus.textContent = "Network error: " + error.message;
+                        recordStatus.style.color = "red";
+                    }
+                };
+
+                mediaRecorder.start();
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                recordStatus.textContent = "Recording... Speak now.";
+                recordStatus.style.color = "red";
+
+            } catch (error) {
+                console.error("Error accessing microphone:", error);
+                recordStatus.textContent = "Error accessing microphone. Please allow permissions.";
+                recordStatus.style.color = "red";
+            }
+        }
+
+        function stopRecording() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        // --- GPT ANSWER GENERATION LOGIC (PHASE 4) ---
+        async function generateAnswer() {
+            const transcript = document.getElementById('transcript').value;
+            const context = document.getElementById('contextInput').value;
+            const statusEl = document.getElementById('gptStatus');
+            const answerOutput = document.getElementById('answerOutput');
+
+            if (!transcript) {
+                statusEl.textContent = "Please record a question first.";
+                statusEl.style.color = "red";
+                return;
+            }
+            if (!context) {
+                statusEl.textContent = "Please provide your context.";
+                statusEl.style.color = "red";
+                return;
+            }
+
+            statusEl.textContent = "Generating answer with GPT-4o...";
+            statusEl.style.color = "blue";
+
+            try {
+                const response = await fetch('/answer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: transcript,
+                        context: context
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    answerOutput.value = data.answer;
+                    statusEl.textContent = "Answer generated successfully!";
+                    statusEl.style.color = "green";
+                } else {
+                    statusEl.textContent = "Error: " + data.error;
+                    statusEl.style.color = "red";
+                }
+            } catch (error) {
+                statusEl.textContent = "Network error: " + error.message;
+                statusEl.style.color = "red";
+            }
+        }
+
+        // --- FULL PIPELINE LOGIC (PHASE 4) ---
+        async function runFullPipeline() {
+            const fileInput = document.getElementById('photo');
+            const file = fileInput.files[0];
+            const transcript = document.getElementById('transcript').value;
+            const context = document.getElementById('contextInput').value;
+            const statusEl = document.getElementById('pipelineStatus');
+            const videoPlayer = document.getElementById('videoPlayer');
+
+            // Basic validation
+            if (!file) {
+                statusEl.textContent = "Please select a photo in the top section.";
+                statusEl.style.color = "red";
+                return;
+            }
+            if (!transcript) {
+                statusEl.textContent = "Please record a question in the Voice Capture section.";
+                statusEl.style.color = "red";
+                return;
+            }
+            if (!context) {
+                statusEl.textContent = "Please provide your context in the GPT section.";
+                statusEl.style.color = "red";
+                return;
+            }
+
+            statusEl.textContent = "Running full pipeline: Uploading -> GPT -> Avatar (Please wait ~30-60s)...";
+            statusEl.style.color = "blue";
+            videoPlayer.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('context', context);
+            formData.append('question', transcript);
+
+            try {
+                const response = await fetch('/full-pipeline', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.video_url) {
+                        // Store the final video URL so other actions can reuse it later.
+                        lastPipelineVideoUrl = data.video_url;
+                        // Store the final video URL in the simplified Meet variable as well.
+                        lastVideoUrl = data.video_url;
+                        // Store the Cloudinary image URL so the real-time pipeline can
+                        // regenerate D-ID videos for every new question without re-uploading.
+                        lastImageUrl = data.image_url || "";
+
+                        // Save to localStorage for next session
+                        localStorage.setItem('lastImageUrl', lastImageUrl);
+                        localStorage.setItem('lastContext', document.getElementById('contextInput').value);
+
+                        statusEl.textContent = "✅ Avatar ready! Click Join Meeting.";
+                        statusEl.style.color = "green";
+                        
+                        videoPlayer.src = lastVideoUrl;
+                        videoPlayer.style.display = 'block';
+                        videoPlayer.play();
+                        // Scroll to video player
+                        videoPlayer.scrollIntoView({ behavior: 'smooth' });
+
+                        // Show the Google Meet button after the pipeline has generated a valid avatar video.
+                        const meetBtn = document.getElementById('joinMeetBtn');
+                        meetBtn.style.display = "block";
+                        meetBtn.onclick = joinMeeting;
+
+                        // Show the "Send to Zoom Meeting" button and wire it up
+                        const sendBtn = document.getElementById('sendToZoomBtn');
+                        sendBtn.style.display = 'inline-block';
+                        sendBtn.onclick = () => {
+                            try {
+                                // Store the video URL for the meeting page to consume
+                                localStorage.setItem('avatarVideoUrl', data.video_url);
+                            } catch (e) {}
+                            // Open the Zoom meeting page in a new tab
+                            window.open('/meeting', '_blank');
+                        };
+                    }
+                } else {
+                    statusEl.textContent = "Error: " + data.error;
+                    statusEl.style.color = "red";
+                }
+            } catch (error) {
+                statusEl.textContent = "An unexpected error occurred: " + error.message;
+                statusEl.style.color = "red";
+            }
+        }
+
+        // --- GOOGLE MEET BOT LOGIC (PHASE 6) ---
+        async function joinMeeting() {
+            console.log("joinMeeting called");
+            console.log("lastVideoUrl:", lastVideoUrl);
+            console.log("lastImageUrl:", lastImageUrl);
+            
+            // Read the Join Google Meet button so we can disable and re-enable it.
+            const btn = document.getElementById('joinMeetBtn');
+            // Read the dedicated Meet status element shown below the button.
+            const status = document.getElementById('meetStatus');
+            // Read the video player so we can recover the latest video URL if needed.
+            const videoPlayer = document.getElementById('videoPlayer');
+
+            // Fall back to the player source if the last saved variable was reset.
+            if (!lastVideoUrl && videoPlayer) {
+                // Pull the current source from the player as a backup value.
+                lastVideoUrl = videoPlayer.currentSrc || videoPlayer.src || "";
+            }
+
+            // Stop early if there is still no avatar video to send to the backend.
+            if (!lastVideoUrl) {
+                alert("Please run the full pipeline first!");
+                // Show the missing-video message below the button.
+                status.textContent = '❌ Please run the pipeline first to generate an avatar video.';
+                return;
+            }
+
+            // Read the user context from the textarea so GPT can use it for answers.
+            // This uses the same textarea ID as the GPT section on the page.
+            const context = document.getElementById('contextInput').value || '';
+
+            // Disable the button right away so the user cannot spam-click it.
+            btn.disabled = true;
+            // Show the temporary loading label while the backend starts Chrome.
+            btn.textContent = '⏳ Opening Chrome...';
+            // Tell the user to watch for the new Chrome window.
+            status.textContent = '🤖 Bot is starting — Chrome will open with the avatar webcam...';
+
+            try {
+                // Call the backend route that launches the Google Meet bot.
+                // Phase 6: we now send context and image_url alongside video_url
+                // so the real-time pipeline can regenerate D-ID videos for every question.
+                const response = await fetch('/join-meet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_url : lastVideoUrl,
+                        context   : context,
+                        image_url : lastImageUrl
+                    })
+                });
+                // Parse the JSON payload returned by Flask.
+                const data = await response.json();
+
+                // Show the success message when the backend accepts the request.
+                if (data.message) {
+                    status.textContent = '✅ ' + data.message;
+                    // Show the Stop Bot button now that the bot is running.
+                    document.getElementById('stopBotBtn').style.display = 'inline-block';
+                } else {
+                    // Show the backend error when Flask rejects the request.
+                    status.textContent = '❌ ' + data.error;
+                }
+            } catch (err) {
+                // Show a network or browser-side error under the button.
+                status.textContent = '❌ Error: ' + err.message;
+            } finally {
+                // Re-enable the button after a short delay so the bot can be restarted.
+                setTimeout(() => {
+                    // Allow the user to click the button again.
+                    btn.disabled = false;
+                    // Change the label so the user knows it can restart the bot.
+                    btn.textContent = '🔄 Rejoin Meeting';
+                }, 3000);
+            }
+        }
+
+        // --- STOP BOT LOGIC (PHASE 6) ---
+        async function stopBot() {
+            // Read the Stop Bot button so we can update its label.
+            const btn = document.getElementById('stopBotBtn');
+            // Read the Meet status paragraph to show feedback.
+            const status = document.getElementById('meetStatus');
+
+            // Disable the button immediately to prevent double-clicks.
+            btn.disabled = true;
+            btn.textContent = '⏳ Stopping...';
+
+            try {
+                // Call the /stop-bot Flask route which stops the listener and Chrome.
+                const response = await fetch('/stop-bot', { method: 'POST' });
+                const data = await response.json();
+
+                // Show the result to the user.
+                status.textContent = data.message
+                    ? '🛑 ' + data.message
+                    : '❌ ' + data.error;
+
+                // Hide the Stop Bot button and reset the Join button.
+                btn.style.display = 'none';
+                const joinBtn = document.getElementById('joinMeetBtn');
+                joinBtn.disabled = false;
+                joinBtn.textContent = '🤖 Join Google Meet as Avatar';
+
+            } catch (err) {
+                status.textContent = '❌ Stop error: ' + err.message;
+                // Re-enable so the user can try again.
+                btn.disabled = false;
+                btn.textContent = '🛑 Stop Bot';
+            }
+        }
+
+        // Expose both functions globally so inline button clicks can always find them.
+        window.joinMeeting = joinMeeting;
+        window.stopBot = stopBot;
+        window.pregenerateLibrary = pregenerateLibrary;
+
+        async function pregenerateLibrary() {
+            const btn = document.getElementById('pregenBtn');
+            const status = document.getElementById('pregenStatus');
+
+            if (!lastImageUrl) {
+                status.textContent = 'Please generate a video first to upload photo!';
+                status.style.color = 'red';
+                return;
+            }
+
+            btn.disabled = true;
+            status.textContent = '⏳ Pre-generating 10 response videos...';
+            status.style.color = 'blue';
+
+            const context = document.getElementById('contextInput').value;
+            const name = context.split(' ')[0] || 'Rafeh';
+
+            try {
+                const response = await fetch('/pregenerate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_url: lastImageUrl,
+                        context: context,
+                        name: name
+                    })
+                });
+                const data = await response.json();
+                status.textContent = '✅ ' + data.message + ' Check terminal for progress.';
+                status.style.color = 'green';
+            } catch(err) {
+                status.textContent = '❌ Error: ' + err.message;
+                status.style.color = 'red';
+            } finally {
+                setTimeout(() => { btn.disabled = false }, 3000);
+            }
+        }
+
+        // --- QUICK JOIN LOGIC ---
+        // Fast path to skip the pipeline and join using existing library videos.
+        async function quickJoinMeet() {
+            const btn = document.getElementById('quickJoinBtn')
+            const status = document.getElementById('quickJoinStatus')
+            const context = document.getElementById('quickContext').value
+            const imageUrl = document.getElementById('quickImageUrl').value
+
+            if (!context) {
+                status.textContent = '❌ Please fill in your context!'
+                return
+            }
+
+            btn.disabled = true
+            btn.textContent = '⏳ Joining meeting...'
+            status.textContent = '🤖 Bot starting — watch for Chrome window...'
+
+            try {
+                // We send 'use_library' as the video_url so the backend knows
+                // to skip the single video download and use pre-recorded MP4s.
+                const response = await fetch('/join-meet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_url: 'use_library',
+                        context: context,
+                        image_url: imageUrl || ''
+                    })
+                })
+                const data = await response.json()
+
+                if (data.message) {
+                    status.textContent = '✅ ' + data.message
+                    document.getElementById('stopBotBtn').style.display = 'inline-block'
+                } else {
+                    status.textContent = '❌ ' + (data.error || 'Unknown error')
+                }
+            } catch (err) {
+                status.textContent = '❌ Error: ' + err.message
+            } finally {
+                // Re-enable the quick join button after 5 seconds.
+                setTimeout(() => {
+                    btn.disabled = false
+                    btn.textContent = '🎯 Join Meet with Library Videos'
+                }, 5000)
+            }
+        }
+
+        // --- PAGE LOAD LOGIC ---
+        // Load the saved info from localStorage when the page refreshes.
+        window.onload = function() {
+            // Restore last used image URL and context
+            const savedImageUrl = localStorage.getItem('lastImageUrl')
+            const savedContext = localStorage.getItem('lastContext')
+
+            if (savedImageUrl) {
+                document.getElementById('quickImageUrl').value = savedImageUrl
+                lastImageUrl = savedImageUrl
+            }
+            if (savedContext) {
+                document.getElementById('quickContext').value = savedContext
+                // Update both context fields to stay in sync
+                document.getElementById('contextInput').value = savedContext
+            }
+        }
+    </script>
+</body>
+</html>

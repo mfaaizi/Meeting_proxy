@@ -1,0 +1,19 @@
+flask
+python-dotenv
+requests
+cloudinary
+openai
+PyJWT
+selenium
+webdriver-manager
+
+# ── Phase 6: Real-time loop ──────────────────────────
+# PyAudio: captures raw microphone audio as PCM frames
+pyaudio
+# webrtcvad-wheels: pre-built Windows binary for Google's VAD.
+# Identical API to webrtcvad but ships as a .whl — no C++ compiler needed.
+# Use this instead of 'webrtcvad' on Windows.
+webrtcvad-wheels
+# ffmpeg-python: Python wrapper around the ffmpeg CLI
+# Used to convert D-ID MP4 downloads to Y4M for Chrome
+ffmpeg-python

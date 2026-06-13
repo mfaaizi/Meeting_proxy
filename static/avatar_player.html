@@ -1,0 +1,42 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { background: black; overflow: hidden; width: 100vw; height: 100vh; }
+            video {
+                width: 100vw;
+                height: 100vh;
+                object-fit: cover;
+                display: block;
+            }
+        </style>
+        </head>
+        <body>
+            <video id="v" autoplay playsinline loop>
+                <source src="http://127.0.0.1:5000/library-video/tell_me_about_yourself.mp4?t=1777046970"
+                        type="video/mp4">
+            </video>
+            <script>
+                const v = document.getElementById('v');
+                // Unmute and set full volume
+                v.muted = false;
+                v.volume = 1.0;
+                // Play immediately
+                v.play().then(() => {
+                    console.log('Playing with audio!');
+                }).catch(e => {
+                    console.log('Autoplay blocked, retrying...');
+                    // Retry with user interaction simulation
+                    document.addEventListener('click', () => v.play());
+                    // Force play after short delay
+                    setTimeout(() => {
+                        v.muted = false;
+                        v.play();
+                    }, 500);
+                });
+            </script>
+        </body>
+        </html>
+        

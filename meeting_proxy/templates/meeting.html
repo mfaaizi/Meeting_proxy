@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting Proxy - Zoom Meeting</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .hidden { display: none; }
+        #status { font-weight: bold; margin-top: 10px; }
+        #avatarVideo, #avatarCanvas { display: none; }
+        #zmmtg-root { width: 100%; height: 600px; position: relative; }
+        .form-group { margin-bottom: 15px; }
+        .btn-primary { background: #007bff; border: none; padding: 10px 16px; border-radius: 4px; color: white; cursor: pointer; }
+        .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+        .btn-success { background: #28a745; border: none; padding: 10px 16px; border-radius: 4px; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Zoom Meeting Joiner (Avatar Mode)</h2>
+
+    <!-- Setup form shown BEFORE joining -->
+    <div id="setupCard" class="card">
+        <div class="form-group">
+            <label for="meetingNumber">Meeting ID</label>
+            <input id="meetingNumber" type="text" style="width:100%; padding:8px;" placeholder="Enter Meeting ID" value="{{ meeting_id or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="meetingPasscode">Passcode</label>
+            <input id="meetingPasscode" type="text" style="width:100%; padding:8px;" placeholder="Enter Passcode">
+        </div>
+        <div class="form-group">
+            <label for="displayName">Display Name</label>
+            <input id="displayName" type="text" style="width:100%; padding:8px;" value="{{ display_name or 'Meeting Proxy Bot' }}">
+        </div>
+        <button class="btn-primary" onclick="handleJoin()">Join Meeting as Avatar</button>
+        <p id="preJoinStatus"></p>
+    </div>
+
+    <!-- Main section shown AFTER joining -->
+    <div id="meetingCard" class="card hidden">
+        <div id="zmmtg-root"></div>
+        <video id="avatarVideo" crossorigin="anonymous" playsinline></video>
+        <canvas id="avatarCanvas" width="512" height="512"></canvas>
+        <p id="status">Status: Joined. You can now inject the avatar video.</p>
+        <button id="injectBtn" class="btn-success" onclick="handleInject()">Inject Avatar Video</button>
+        <button id="testInjectBtn" class="btn-primary" onclick="handleInject('https://create-images-results.d-id.com/DefaultPresenters/Noelle_f/image.png')">Test Avatar Injection</button>
+    </div>
+
+    <!-- Load the bundled Zoom client built with webpack -->
+    <script src="/static/zoom/bundle.js"></script>
+
+    <script>
+        // Store a possible avatar URL from localStorage (set by index.html full pipeline)
+        const storedAvatarUrl = localStorage.getItem('avatarVideoUrl');
+        const statusEl = document.getElementById('status');
+        const preJoinStatusEl = document.getElementById('preJoinStatus');
+        const injectBtn = document.getElementById('injectBtn');
+
+        if (storedAvatarUrl) {
+            preJoinStatusEl.textContent = "Avatar video ready — join meeting then click Inject";
+            preJoinStatusEl.style.color = "blue";
+        }
+
+        // --- JOIN MEETING LOGIC ---
+        async function handleJoin() {
+            const meetingNumber = document.getElementById('meetingNumber').value.trim();
+            const passcode = document.getElementById('meetingPasscode').value.trim();
+            const displayName = document.getElementById('displayName').value.trim() || 'Meeting Proxy Bot';
+
+            if (!meetingNumber || !passcode) {
+                preJoinStatusEl.textContent = "Please enter Meeting ID and Passcode.";
+                preJoinStatusEl.style.color = "red";
+                return;
+            }
+
+            try {
+                preJoinStatusEl.textContent = "Requesting signature...";
+                preJoinStatusEl.style.color = "blue";
+
+                // Get signature from backend
+                const sigResp = await fetch('/zoom-signature', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ meeting_number: meetingNumber, role: 0 })
+                });
+                const sigData = await sigResp.json();
+                
+                if (!sigResp.ok) throw new Error(sigData.error || 'Failed to get signature');
+
+                preJoinStatusEl.textContent = "Joining Zoom meeting via SDK...";
+
+                // Call the bundled ZoomApp.joinMeeting function
+                const result = await window.joinMeeting(
+                    sigData.signature,
+                    sigData.sdkKey,
+                    meetingNumber,
+                    passcode,
+                    displayName
+                );
+
+                if (result.success) {
+                    // Success! Switch UI to meeting mode
+                    document.getElementById('setupCard').classList.add('hidden');
+                    document.getElementById('meetingCard').classList.remove('hidden');
+                    statusEl.textContent = "Status: Joined meeting. Ready to inject avatar.";
+
+                    // Auto-inject if we have a stored URL
+                    if (storedAvatarUrl) {
+                        handleInject(storedAvatarUrl);
+                    }
+                } else {
+                    preJoinStatusEl.textContent = "Zoom Error: " + result.error;
+                    preJoinStatusEl.style.color = "red";
+                }
+            } catch (e) {
+                preJoinStatusEl.textContent = "Error: " + e.message;
+                preJoinStatusEl.style.color = "red";
+            }
+        }
+
+        // --- INJECT AVATAR LOGIC ---
+        async function handleInject(urlToUse) {
+            const url = urlToUse || storedAvatarUrl || prompt("Enter D-ID video URL to inject:");
+            if (!url) return;
+
+            statusEl.textContent = "Status: Injecting avatar video...";
+            statusEl.style.color = "blue";
+
+            try {
+                // Call the bundled ZoomApp.injectAvatarVideo function
+                const result = await window.injectAvatarVideo(url);
+
+                if (result.success) {
+                    statusEl.textContent = "Status: Avatar is live in Zoom!";
+                    statusEl.style.color = "green";
+                } else {
+                    statusEl.textContent = "Injection error: " + result.error;
+                    statusEl.style.color = "red";
+                }
+            } catch (e) {
+                statusEl.textContent = "Unexpected error: " + e.message;
+                statusEl.style.color = "red";
+            }
+        }
+    </script>
+</body>
+</html>
