@@ -31,6 +31,7 @@ _pipeline_running = False
 _answer_cache = {}
 _user_context = ""
 _image_url = ""
+_voice_id = None
 
 # Track last question to prevent double triggers
 _last_question = ""
@@ -61,9 +62,9 @@ def get_meeting_transcript() -> str:
         lines.append("")
     return "\n".join(lines)
 
-def set_user_context(context: str, image_url: str) -> None:
+def set_user_context(context: str, image_url: str, voice_id: str = None) -> None:
     """
-    Stores the user's context string and photo URL into globals.
+    Stores the user's context string, photo URL, and voice_id into globals.
 
     Call this once before starting the real-time loop so every
     pipeline run has access to the same context and image.
@@ -71,16 +72,19 @@ def set_user_context(context: str, image_url: str) -> None:
     Args:
         context  : Free-text description of who the user is.
         image_url: Public Cloudinary URL of the user's photo.
+        voice_id : ElevenLabs voice ID (optional).
     """
-    global _user_context, _image_url
+    global _user_context, _image_url, _voice_id
 
-    # Save the context and image URL into the module-level globals.
+    # Save the context, image URL, and voice_id into the module-level globals.
     _user_context = context
     _image_url = image_url
+    _voice_id = voice_id
 
     # Print the first 50 chars of context so the terminal confirms it was set.
     print(f"[Pipeline] Context set: {context[:50]}...")
     print(f"[Pipeline] Image URL  : {image_url}")
+    print(f"[Pipeline] Voice ID   : {voice_id or 'Default (Microsoft)'}")
 
 
 # ──────────────────────────────────────────────
@@ -277,6 +281,7 @@ def run_realtime_pipeline(transcript: str) -> None:
     global _answer_cache
     global _user_context
     global _image_url
+    global _voice_id
     global _last_question
     global _last_question_time
 
@@ -378,10 +383,12 @@ def run_realtime_pipeline(transcript: str) -> None:
                 f"'{answer_prefix[:40]}'"
             )
 
-        print(f"[Pipeline] 🎬 Creating D-ID video (uses 1 credit)...")
+        print(f"[Pipeline] 🎬 Creating D-ID video...")
 
         try:
-            video_url = generate_avatar_video(_image_url, answer)
+            video_url = generate_avatar_video(
+                _image_url, answer, voice_id=_voice_id
+            )
             import hashlib, shutil
             q_hash = hashlib.md5(
                 cache_key.encode()

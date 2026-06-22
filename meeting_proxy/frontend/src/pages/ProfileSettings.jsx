@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import PageShell from '../components/PageShell'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,54 +21,104 @@ export default function ProfileSettings() {
     try {
       await api.put('/api/profile', { context, meet_link: meetLink })
       await refreshDbUser()
-      toast.success('Profile updated')
-    } catch (error) {
-      toast.error(error?.response?.data?.error || 'Failed to update')
+      toast.success('Profile updated!')
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Failed to update')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <PageShell title="Profile Settings">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-5 flex items-center gap-4">
-          <img
-            src={dbUser?.profile_picture || 'https://via.placeholder.com/72'}
-            alt="Current profile"
-            className="h-18 w-18 rounded-full border border-gray-200 object-cover dark:border-gray-700"
-          />
-          <button type="button" className="rounded-lg bg-gray-100 px-4 py-2 text-sm dark:bg-gray-800">
-            Change Photo
-          </button>
-        </div>
+  const MAX = 1000
 
-        <div className="grid gap-4">
-          <input value={dbUser?.name || ''} readOnly className="rounded-xl border border-gray-200 bg-gray-100 p-3 dark:border-gray-700 dark:bg-gray-800" />
-          <input value={dbUser?.email || ''} readOnly className="rounded-xl border border-gray-200 bg-gray-100 p-3 dark:border-gray-700 dark:bg-gray-800" />
+  return (
+    <PageShell title="Profile Settings" subtitle="Update your avatar context and default meeting link">
+      <div className="max-w-2xl mx-auto space-y-5">
+
+        {/* Avatar card */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mp-card p-6">
+          <p className="mp-section-title">🎭 Avatar Identity</p>
+          <div className="flex items-center gap-5">
+            <div className="relative flex-shrink-0">
+              <img
+                src={dbUser?.profile_picture || 'https://via.placeholder.com/72'}
+                referrerPolicy="no-referrer"
+                alt="avatar"
+                className="w-20 h-20 rounded-xl object-cover"
+                style={{ border: '2px solid var(--orange)' }}
+              />
+              <div
+                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                style={{ background: '#22c55e', border: '2px solid var(--bg)' }}
+              >
+                ✓
+              </div>
+            </div>
+            <div>
+              <p className="font-bold" style={{ color: 'var(--text-primary)' }}>{dbUser?.name || '—'}</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{dbUser?.email || '—'}</p>
+              <p className="text-xs mt-2 px-2 py-1 rounded-lg inline-block" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
+                Google Account ✅
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Context */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mp-card p-6">
+          <div className="flex items-center justify-between mb-1">
+            <p className="mp-section-title mb-0">🧠 Your Context / Bio</p>
+            <span className="text-xs" style={{ color: context.length > MAX * 0.9 ? '#f59e0b' : 'var(--text-muted)' }}>
+              {context.length}/{MAX}
+            </span>
+          </div>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+            Your avatar uses this to answer questions during meetings.
+          </p>
           <textarea
             value={context}
-            onChange={(e) => setContext(e.target.value)}
-            rows={6}
-            placeholder="Context / bio"
-            className="rounded-xl border border-gray-200 p-3 dark:border-gray-700 dark:bg-gray-900"
+            onChange={(e) => setContext(e.target.value.slice(0, MAX))}
+            rows={7}
+            placeholder="I am [Name], a [role] at [company/university]…"
+            className="mp-input resize-none"
+            style={{ lineHeight: '1.6' }}
           />
+          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${(context.length / MAX) * 100}%`,
+                background: context.length > MAX * 0.9 ? '#f59e0b' : 'var(--orange)',
+              }}
+            />
+          </div>
+        </motion.div>
+
+        {/* Meeting link */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mp-card p-6">
+          <p className="mp-section-title">🔗 Default Meeting Link</p>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+            Pre-filled when you start or schedule a new meeting.
+          </p>
           <input
             value={meetLink}
             onChange={(e) => setMeetLink(e.target.value)}
-            placeholder="Default meeting link"
-            className="rounded-xl border border-gray-200 p-3 dark:border-gray-700 dark:bg-gray-900"
+            placeholder="https://meet.google.com/xxx-xxxx-xxx"
+            className="mp-input"
           />
-        </div>
+        </motion.div>
 
-        <button
-          type="button"
-          onClick={save}
-          disabled={loading}
-          className="mt-5 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white disabled:opacity-60"
-        >
-          {loading ? 'Saving...' : 'Save Changes'}
-        </button>
+        {/* Save */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <button onClick={save} disabled={loading} className="mp-btn-primary w-full py-3 text-base">
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Saving…
+              </span>
+            ) : '💾 Save Changes'}
+          </button>
+        </motion.div>
       </div>
     </PageShell>
   )

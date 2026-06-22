@@ -1,205 +1,150 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import Navbar from '../components/Navbar'
+import MouseGlow from '../components/MouseGlow'
+import PageBackground from '../components/PageBackground'
+
+const CHECKS = [
+  { key: 'obs',    icon: '🎬', label: 'OBS Studio is open',          sub: 'Virtual Camera must be started' },
+  { key: 'cable',  icon: '🔊', label: 'VB-Audio Cable is installed',  sub: 'For audio routing to meeting' },
+  { key: 'chrome', icon: '🌐', label: 'Chrome browser is available',  sub: 'Bot will open Chrome automatically' },
+]
 
 export default function MeetingJoin() {
-    const { sessionId } = useParams()
-    const { dbUser } = useAuth()
-    const navigate = useNavigate()
-    const [meetLink, setMeetLink] = useState('')
-    const [joining, setJoining] = useState(false)
-    const [checklist, setChecklist] = useState({
-        obs: false,
-        cable: false,
-        chrome: false
-    })
+  const { sessionId } = useParams()
+  const { dbUser } = useAuth()
+  const navigate = useNavigate()
+  const [meetLink, setMeetLink] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [checklist, setChecklist] = useState({ obs: false, cable: false, chrome: false })
 
-    // Pre-fill meet link from user profile
-    useEffect(() => {
-        if (dbUser?.meet_link) {
-            setMeetLink(dbUser.meet_link)
-        }
-    }, [dbUser])
+  useEffect(() => {
+    if (dbUser?.meet_link) setMeetLink(dbUser.meet_link)
+  }, [dbUser])
 
-    const allChecked = Object.values(checklist).every(v => v)
+  const allChecked = Object.values(checklist).every(Boolean)
 
-    const joinMeeting = async () => {
-        if (!meetLink.trim()) {
-            toast.error('Please enter a meeting link!')
-            return
-        }
-        if (!allChecked) {
-            toast.error(
-                'Please complete the checklist first!'
-            )
-            return
-        }
-
-        setJoining(true)
-        try {
-            const res = await axios.post(
-                `/api/meeting-prep/join/${sessionId}`,
-                { meet_link: meetLink },
-                { withCredentials: true }
-            )
-            toast.success('Bot is joining the meeting!')
-            navigate('/meeting/active')
-        } catch(e) {
-            toast.error(
-                e.response?.data?.error ||
-                'Failed to join meeting'
-            )
-            setJoining(false)
-        }
+  const join = async () => {
+    if (!meetLink.trim()) return toast.error('Please enter a meeting link')
+    if (!allChecked) return toast.error('Please complete the checklist first')
+    setJoining(true)
+    try {
+      await axios.post(`/api/meeting-prep/join/${sessionId}`, { meet_link: meetLink }, { withCredentials: true })
+      toast.success('Bot is joining the meeting!')
+      navigate('/meeting/active')
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Failed to join meeting')
+      setJoining(false)
     }
+  }
 
-    return (
-        <div className="min-h-screen bg-gray-50
-            dark:bg-gray-900 transition-colors">
-            <Navbar />
-            <div className="max-w-lg mx-auto px-4 py-16">
+  const toggle = (key) => setChecklist((p) => ({ ...p, [key]: !p[key] }))
 
-                <div className="text-center mb-8">
-                    <div className="text-6xl mb-4">✅</div>
-                    <h1 className="text-2xl font-bold
-                        dark:text-white">
-                        Videos Ready!
-                    </h1>
-                    <p className="text-gray-500
-                        dark:text-gray-400 mt-2">
-                        Session ID: {sessionId}
-                    </p>
-                </div>
+  return (
+    <div style={{ background: 'var(--bg)', color: 'var(--text-primary)' }} className="min-h-screen flex items-center justify-center p-4">
+      <PageBackground />
+      <MouseGlow />
 
-                {/* Meet link input */}
-                <div className="bg-white dark:bg-gray-800
-                    rounded-xl p-6 shadow-sm mb-4">
-                    <h3 className="font-semibold mb-3
-                        dark:text-white">
-                        🔗 Meeting Link
-                    </h3>
-                    <input
-                        type="text"
-                        value={meetLink}
-                        onChange={e => setMeetLink(e.target.value)}
-                        placeholder="https://meet.google.com/xxx-xxxx-xxx"
-                        className="w-full border rounded-lg
-                            px-4 py-2 dark:bg-gray-700
-                            dark:text-white dark:border-gray-600
-                            focus:outline-none focus:ring-2
-                            focus:ring-blue-500"
-                    />
-                </div>
-
-                {/* Checklist */}
-                <div className="bg-white dark:bg-gray-800
-                    rounded-xl p-6 shadow-sm mb-6">
-                    <h3 className="font-semibold mb-4
-                        dark:text-white">
-                        ✅ Before Joining Checklist
-                    </h3>
-                    <div className="space-y-3">
-                        {[
-                            {
-                                key: 'obs',
-                                label: 'OBS Studio is open',
-                                sub: 'Virtual Camera must be started'
-                            },
-                            {
-                                key: 'cable',
-                                label: 'VB-Audio Cable is installed',
-                                sub: 'For audio routing to meeting'
-                            },
-                            {
-                                key: 'chrome',
-                                label: 'Chrome browser is available',
-                                sub: 'Bot will open Chrome automatically'
-                            },
-                        ].map((item) => (
-                            <label key={item.key}
-                                className="flex items-start
-                                gap-3 cursor-pointer group">
-                                <div
-                                    onClick={() => setChecklist(
-                                        prev => ({
-                                            ...prev,
-                                            [item.key]: !prev[item.key]
-                                        })
-                                    )}
-                                    className={`w-5 h-5 rounded
-                                        border-2 flex-shrink-0
-                                        mt-0.5 flex items-center
-                                        justify-center cursor-pointer
-                                        transition-colors
-                                        ${checklist[item.key]
-                                            ? 'bg-green-500 border-green-500'
-                                            : 'border-gray-300 dark:border-gray-600'
-                                        }`}
-                                >
-                                    {checklist[item.key] && (
-                                        <span className="text-white
-                                            text-xs font-bold">
-                                            ✓
-                                        </span>
-                                    )}
-                                </div>
-                                <div>
-                                    <p className="font-medium
-                                        text-sm dark:text-white
-                                        group-hover:text-blue-500">
-                                        {item.label}
-                                    </p>
-                                    <p className="text-xs
-                                        text-gray-400">
-                                        {item.sub}
-                                    </p>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Join button */}
-                <button
-                    onClick={joinMeeting}
-                    disabled={joining || !meetLink}
-                    className={`w-full py-4 rounded-xl
-                        font-bold text-lg transition-all
-                        flex items-center justify-center gap-2
-                        ${allChecked && meetLink
-                            ? 'bg-green-500 hover:bg-green-600 text-white'
-                            : 'bg-gray-300 dark:bg-gray-700 text-gray-500'
-                        }
-                        disabled:opacity-50`}
-                >
-                    {joining ? (
-                        <>
-                            <div className="w-5 h-5 border-2
-                                border-white border-t-transparent
-                                rounded-full animate-spin">
-                            </div>
-                            Bot is joining...
-                        </>
-                    ) : (
-                        '🚀 Join Meeting as Avatar'
-                    )}
-                </button>
-
-                {joining && (
-                    <div className="mt-4 bg-blue-50
-                        dark:bg-blue-900/20 rounded-xl p-4
-                        text-center">
-                        <p className="text-blue-600
-                            dark:text-blue-400 text-sm">
-                            🤖 Chrome is opening and joining
-                            the meeting. Check your desktop!
-                        </p>
-                    </div>
-                )}
-            </div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="text-2xl font-bold mb-1">
+            <span style={{ color: 'var(--text-primary)' }}>Meeting</span>
+            <span style={{ color: 'var(--orange)' }}>Proxy</span>
+          </div>
         </div>
-    )
+
+        <div className="mp-card p-8 relative" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
+            <div style={{ background: 'radial-gradient(circle at 50% 0%, rgba(255,107,53,0.1), transparent 60%)', height: '100%' }} />
+          </div>
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+            <span className="mp-badge px-5 py-1.5 text-xs">JOIN</span>
+          </div>
+
+          <div className="relative z-10">
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-3">✅</div>
+              <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Videos Ready!</h1>
+              <p className="text-xs mt-1 font-mono" style={{ color: 'var(--text-muted)' }}>Session: {sessionId}</p>
+            </div>
+
+            {/* Meet link */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🔗 MEETING LINK</label>
+              <input
+                value={meetLink}
+                onChange={(e) => setMeetLink(e.target.value)}
+                placeholder="https://meet.google.com/xxx-xxxx-xxx"
+                className="mp-input"
+              />
+            </div>
+
+            {/* Checklist */}
+            <div className="mb-6">
+              <label className="block text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>PRE-JOIN CHECKLIST</label>
+              <div className="space-y-3">
+                {CHECKS.map((item) => (
+                  <div
+                    key={item.key}
+                    onClick={() => toggle(item.key)}
+                    className="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                    style={{
+                      background: checklist[item.key] ? 'rgba(34,197,94,0.08)' : 'var(--bg-input)',
+                      border: `1px solid ${checklist[item.key] ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`,
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold"
+                      style={{
+                        background: checklist[item.key] ? '#22c55e' : 'transparent',
+                        border: `1.5px solid ${checklist[item.key] ? '#22c55e' : 'var(--border)'}`,
+                        color: '#fff',
+                      }}
+                    >
+                      {checklist[item.key] ? '✓' : ''}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.icon} {item.label}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.sub}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={join}
+              disabled={joining || !meetLink}
+              className="mp-btn-primary w-full py-3.5 text-base"
+              style={{
+                background: allChecked && meetLink
+                  ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                  : 'linear-gradient(135deg, var(--orange), var(--orange-dark))',
+                opacity: !meetLink || joining ? 0.6 : 1,
+              }}
+            >
+              {joining ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Bot is joining…
+                </span>
+              ) : '🚀 Join Meeting as Avatar'}
+            </button>
+
+            {joining && (
+              <div className="mt-4 p-4 rounded-xl text-center" style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid var(--border)' }}>
+                <p className="text-sm" style={{ color: 'var(--orange)' }}>
+                  🤖 Chrome is opening and joining the meeting. Check your desktop!
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
 }

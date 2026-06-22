@@ -111,7 +111,7 @@ def set_browser_source(video_filename: str) -> bool:
         </style>
         </head>
         <body>
-            <video id="v" autoplay playsinline loop>
+            <video id="v" autoplay playsinline>
                 <source src="{video_url}?t={int(time.time())}"
                         type="video/mp4">
             </video>

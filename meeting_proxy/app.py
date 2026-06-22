@@ -685,13 +685,145 @@ def update_profile():
     user = db.session.get(User, user_id)
     
     data = request.get_json() or {}
+    # Update the user profile
     if "context" in data:
         user.context = data["context"]
     if "meet_link" in data:
         user.meet_link = data["meet_link"]
+    
+    # Also support saving voice settings here
+    voice_id = data.get('voice_id')
+    voice_name = data.get('voice_name')
+    if voice_id is not None:
+        user.voice_id = voice_id
+        user.voice_name = voice_name
         
     db.session.commit()
-    return jsonify({"user": user.to_dict()})
+
+    return jsonify({"message": "Profile updated", "user": user.to_dict()})
+
+# ==========================================
+# ElevenLabs Custom Voice API Routes
+# ==========================================
+
+@app.route('/api/voices', methods=['GET'])
+@require_firebase_auth
+def list_voices():
+    """Lists all available ElevenLabs voices."""
+    try:
+        from elevenlabs_service import list_voices
+        voices = list_voices()
+        return jsonify({"voices": voices})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/voices/clone', methods=['POST'])
+@require_firebase_auth
+def clone_voice():
+    """Clones a voice using provided audio files."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+        
+    name = request.form.get('name', 'Custom Voice')
+    files = request.files.getlist('file')
+    
+    try:
+        import tempfile
+        from elevenlabs_service import clone_voice
+        
+        temp_paths = []
+        for file in files:
+            temp_path = os.path.join("temp_audio", f"sample_{file.filename}")
+            file.save(temp_path)
+            temp_paths.append(temp_path)
+            
+        result = clone_voice(name, temp_paths)
+        
+        # Cleanup
+        for path in temp_paths:
+            if os.path.exists(path):
+                os.remove(path)
+                
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/voices/<voice_id>', methods=['DELETE'])
+@require_firebase_auth
+def delete_voice(voice_id):
+    """Deletes a cloned ElevenLabs voice."""
+    try:
+        from elevenlabs_service import delete_voice
+        delete_voice(voice_id)
+        
+        # If user had this voice selected, clear it
+        user_id = flask_session.get('user_id')
+        user = db.session.get(User, user_id)
+        if user.voice_id == voice_id:
+            user.voice_id = None
+            user.voice_name = None
+            db.session.commit()
+            
+        return jsonify({"message": "Voice deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/voices/preview', methods=['POST'])
+@require_firebase_auth
+def preview_voice():
+    """Generates a short audio preview of a voice."""
+    data = request.get_json() or {}
+    voice_id = data.get('voice_id')
+    text = data.get('text')
+    
+    if not voice_id:
+        return jsonify({"error": "voice_id required"}), 400
+        
+    try:
+        from elevenlabs_service import preview_voice
+        import base64
+        
+        audio_path = preview_voice(voice_id, text)
+        
+        # Read the file and encode as base64 to send to frontend
+        with open(audio_path, "rb") as f:
+            audio_data = f.read()
+            
+        b64_audio = base64.b64encode(audio_data).decode('utf-8')
+        data_uri = f"data:audio/mp3;base64,{b64_audio}"
+        
+        # Cleanup
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            
+        return jsonify({"audio_url": data_uri})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/voice-settings', methods=['PUT'])
+@require_firebase_auth
+def save_voice_settings():
+    """Saves the user's preferred ElevenLabs voice."""
+    data = request.get_json() or {}
+    voice_id = data.get('voice_id')
+    voice_name = data.get('voice_name')
+    
+    user_id = flask_session.get('user_id')
+    user = db.session.get(User, user_id)
+    
+    # If voice_id is empty string or None, clear it (fallback to Microsoft)
+    if not voice_id:
+        user.voice_id = None
+        user.voice_name = None
+    else:
+        user.voice_id = voice_id
+        user.voice_name = voice_name
+        
+    db.session.commit()
+    return jsonify({
+        "message": "Voice settings saved",
+        "user": user.to_dict()
+    })
 
 @app.route("/api/custom-qa", methods=["GET", "POST"])
 @require_firebase_auth
@@ -814,7 +946,8 @@ def join_meeting():
             image_url=user_photo_url,
             user_id=user_id_val,
             meet_link=meet_link or user_meet_link,
-            session_id=session_id
+            session_id=session_id,
+            voice_id=user.voice_id
         )
         
     threading.Thread(target=run_bot, daemon=True).start()
@@ -1321,7 +1454,8 @@ def join_prep_meeting(session_id):
                 image_url=user_photo_url,
                 user_id=user_id_val,
                 meet_link=meet_link,
-                session_videos=session_videos
+                session_videos=session_videos,
+                voice_id=user.voice_id
             )
         
     threading.Thread(target=run_bot, daemon=True).start()
@@ -1496,6 +1630,35 @@ def serve_session_video(user_id, session_id, filename):
         return "Video not found", 404
         
     return send_from_directory(session_folder, safe_filename, mimetype='video/mp4')
+
+@app.route('/api/sessions', methods=['POST'])
+@require_firebase_auth
+def create_session():
+    user_id = flask_session.get('user_id')
+    import uuid
+    import json
+    session_id = str(uuid.uuid4())[:8]
+    
+    session_folder = os.path.join(
+        os.getcwd(), 'users', str(user_id),
+        'sessions', session_id
+    )
+    os.makedirs(session_folder, exist_ok=True)
+    
+    meeting_session = MeetingSession(
+        user_id=user_id,
+        session_id=session_id,
+        meeting_context="Empty Session",
+        session_folder=session_folder,
+        status='ready'
+    )
+    db.session.add(meeting_session)
+    db.session.commit()
+    
+    s_dict = meeting_session.to_dict()
+    s_dict['folder_exists'] = True
+    s_dict['video_count_on_disk'] = 0
+    return jsonify({'session': s_dict})
 
 @app.route('/api/sessions', methods=['GET'])
 @require_firebase_auth

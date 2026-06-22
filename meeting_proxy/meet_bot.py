@@ -364,6 +364,9 @@ def set_idle_state(image_url: str) -> None:
     photo_url = image_url or _user_image_url
     if photo_url:
         print("[Idle] ✅ Static photo idle — no sound")
+        from realtime_pipeline import clear_meeting_transcript
+    
+        clear_meeting_transcript()
         set_idle_photo(photo_url)
     else:
         print("[Idle] ⚠️ No image URL for idle state")
@@ -757,15 +760,16 @@ def join_meet_after_injection(driver) -> None:
 
 def run_meet_bot(
     video_url: str,
-    context: str,
-    image_url: str,
+    context: str = "",
+    image_url: str = "",
     user_id: int = None,
     meet_link: str = None,
-    session_videos: dict = None
-) -> dict:
+    session_videos: dict = None,
+    voice_id: str = None
+):
     """
-    The main entry point for the Google Meet bot.
-    Launches Chrome, joins a meeting, and starts the real-time VAD loop.
+    Main entry point for starting the Google Meet bot.
+    Now also initializes the real-time background listener pipeline.
     """
     # Declare all globals at the very top of the function
     global _driver
@@ -811,7 +815,7 @@ def run_meet_bot(
         _user_image_url = image_url 
 
         # Save context and validated image URL
-        set_user_context(context, image_url)
+        set_user_context(context, image_url, voice_id=voice_id)
 
         # Generate nodding idle video in background 
         import threading as _threading 
@@ -900,36 +904,49 @@ def run_meet_bot(
             "how does it work",
         ]
 
-        for q in priority_questions:
-            if q in library_index:
-                path = library_index[q]
-                if os.path.exists(path):
-                    greeting_mp4 = path
-                    print(f"[Bot] Using library video: '{q}'")
+        # First, check the user's active session_videos
+        if _session_videos:
+            for q in priority_questions:
+                for sq, path in _session_videos.items():
+                    if q in sq.lower() and os.path.exists(path):
+                        greeting_mp4 = path
+                        print(f"[Bot] Using session video for greeting: '{sq}'")
+                        break
+                if greeting_mp4:
                     break
+            
+            # If no priority match, pick any session video
+            if not greeting_mp4:
+                for sq, path in _session_videos.items():
+                    if sq != "__idle__" and os.path.exists(path):
+                        greeting_mp4 = path
+                        print(f"[Bot] Using fallback session video for greeting: '{sq}'")
+                        break
 
-        # If no library video found, use any available mp4
+        # Only fall back to global library if session videos didn't have one
         if not greeting_mp4:
-            # Check if any library video exists on disk
-            for q, path in library_index.items():
-                if os.path.exists(path):
-                    greeting_mp4 = path
-                    print(f"[Bot] Using fallback library video: '{q}'")
-                    break
+            for q in priority_questions:
+                if q in library_index:
+                    path = library_index[q]
+                    if os.path.exists(path):
+                        greeting_mp4 = path
+                        print(f"[Bot] Using global library video: '{q}'")
+                        break
 
-        # If still nothing, check response_library folder directly
-        if not greeting_mp4:
-            lib_folder = LIBRARY_FOLDER
-            if os.path.exists(lib_folder):
-                mp4_files = [
-                    f for f in os.listdir(lib_folder)
-                    if f.endswith('.mp4')
-                ]
-                if mp4_files:
-                    greeting_mp4 = os.path.join(
-                        lib_folder, mp4_files[0]
-                    )
-                    print(f"[Bot] Using folder video: {mp4_files[0]}")
+            if not greeting_mp4:
+                for q, path in library_index.items():
+                    if os.path.exists(path):
+                        greeting_mp4 = path
+                        print(f"[Bot] Using fallback global library video: '{q}'")
+                        break
+
+            if not greeting_mp4:
+                lib_folder = LIBRARY_FOLDER
+                if os.path.exists(lib_folder):
+                    mp4_files = [f for f in os.listdir(lib_folder) if f.endswith('.mp4')]
+                    if mp4_files:
+                        greeting_mp4 = os.path.join(lib_folder, mp4_files[0])
+                        print(f"[Bot] Using folder video: {mp4_files[0]}")
 
         if not greeting_mp4:
             raise Exception(
@@ -1014,10 +1031,10 @@ def run_meet_bot(
         set_idle_state(_user_image_url or avatar_image)
 
         # Play greeting
-        print("[Bot] Playing greeting...")
-        set_avatar_speaking(True)
-        play_and_wait(greeting_mp4)
-        set_avatar_speaking(False)
+        # print("[Bot] Playing greeting...")
+        # set_avatar_speaking(True)
+        # play_and_wait(greeting_mp4)
+        # set_avatar_speaking(False)
 
         # Return to idle after greeting
         from realtime_pipeline import set_idle_state

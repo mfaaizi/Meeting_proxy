@@ -20,8 +20,8 @@ RATE = 16000          # 16kHz sample rate (required by webrtcvad)
 CHANNELS = 1          # Mono audio
 CHUNK_DURATION = 30   # milliseconds per chunk (must be 10, 20, or 30)
 CHUNK_SIZE = int(RATE * CHUNK_DURATION / 1000)  # samples per chunk
-VAD_AGGRESSIVENESS = 1  # Lower = more sensitive (was 2)
-SILENCE_THRESHOLD = 35  # Higher threshold for transcription (was 25)
+VAD_AGGRESSIVENESS = 3  # Higher = filters out background noise better (0-3)
+SILENCE_THRESHOLD = 25  # Lower = faster response (was 35)
 MIN_SPEECH_CHUNKS = 8   # More chunks needed for transcription (was 6)
 # Set to None to use default mic
 # Set to device index number to use specific mic
@@ -485,9 +485,8 @@ def start_listening(on_question_detected) -> None:
                     )
                     return
 
-            # Filter long paragraphs — likely the avatar's own answer echo.
             word_count = len(transcript.split())
-            if word_count > 40:
+            if word_count > 150:
                 print(
                     f"[STT] Long paragraph filtered "
                     f"({word_count} words) — likely echo: "

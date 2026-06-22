@@ -1,66 +1,129 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import PageShell from '../components/PageShell'
+import MouseGlow from '../components/MouseGlow'
+import PageBackground from '../components/PageBackground'
 import api from '../api'
 
+function StepBar({ step }) {
+  return (
+    <div className="flex items-center gap-2 mb-8">
+      {[1, 2, 3].map((s) => (
+        <div key={s} className="flex items-center gap-2">
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{
+              background: s <= step ? 'var(--orange)' : 'var(--bg-card)',
+              border: '1.5px solid var(--border)',
+              color: s <= step ? '#fff' : 'var(--text-muted)',
+            }}
+          >
+            {s < step ? '✓' : s}
+          </div>
+          {s < 3 && <div className="w-16 h-0.5" style={{ background: s < step ? 'var(--orange)' : 'var(--border)' }} />}
+        </div>
+      ))}
+      <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>Step {step} of 3</span>
+    </div>
+  )
+}
+
+const PLACEHOLDER = `I am [Your Name], a [your role] at [company/university].
+
+I specialize in [your skills/technologies]. My current project is [project description].
+
+Background: [brief background]
+
+Key strengths: [list your strengths]
+
+How I communicate: [your communication style]`
+
 export default function OnboardingContext() {
-  // This step collects personal context used by the AI during meetings.
   const [context, setContext] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-  const maxChars = 1000
+  const MAX = 1000
 
-  const saveContext = async () => {
+  const save = async () => {
+    if (context.trim().length < 20) return toast.error('Please add more context (at least 20 characters)')
     setLoading(true)
     try {
       await api.put('/api/profile', { context })
-      toast.success('Profile context saved')
+      toast.success('Context saved!')
       navigate('/onboarding/qa')
-    } catch (error) {
-      toast.error(error?.response?.data?.error || 'Failed to save context')
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Failed to save')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <PageShell title="Tell Us About Yourself">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-6 h-2 rounded bg-gray-200 dark:bg-gray-700">
-          <div className="h-2 w-2/3 rounded bg-blue-500" />
+    <div style={{ background: 'var(--bg)', color: 'var(--text-primary)' }} className="min-h-screen flex items-center justify-center p-4">
+      <PageBackground />
+      <MouseGlow />
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-xl">
+        <div className="text-center mb-8">
+          <div className="text-2xl font-bold mb-1">
+            <span style={{ color: 'var(--text-primary)' }}>Meeting</span>
+            <span style={{ color: 'var(--orange)' }}>Proxy</span>
+          </div>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Account Setup</p>
         </div>
-        <p className="mb-6 text-gray-600 dark:text-gray-300">Step 2 of 3 (66%)</p>
-        <p className="mb-4 text-gray-600 dark:text-gray-300">
-          Your avatar will use this to answer questions in meetings
-        </p>
 
-        <textarea
-          value={context}
-          onChange={(e) => setContext(e.target.value.slice(0, maxChars))}
-          rows={10}
-          className="w-full rounded-xl border border-gray-200 bg-white p-4 text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-          placeholder="I am [Your Name], a [your role] at [company/university]. I specialize in [skills]. My current project is [project description]..."
-        />
+        <div className="mp-card p-8 relative" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
+            <div style={{ background: 'radial-gradient(circle at 50% 0%, rgba(255,107,53,0.1), transparent 60%)', height: '100%' }} />
+          </div>
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+            <span className="mp-badge px-5 py-1.5 text-xs">SETUP</span>
+          </div>
 
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          {context.length}/{maxChars}
-        </p>
+          <div className="relative z-10">
+            <StepBar step={2} />
 
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={saveContext}
-            disabled={loading}
-            className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {loading ? 'Saving...' : 'Continue'}
-          </button>
-          <Link to="/dashboard" className="text-sm text-gray-600 underline dark:text-gray-300">
-            Skip for now
-          </Link>
+            <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Tell Us About Yourself</h2>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+              Your AI avatar will use this context to answer questions accurately during meetings.
+            </p>
+
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value.slice(0, MAX))}
+              placeholder={PLACEHOLDER}
+              rows={10}
+              className="mp-input resize-none"
+              style={{ fontFamily: 'inherit', lineHeight: '1.6' }}
+            />
+
+            <div className="flex items-center justify-between mt-2 mb-6">
+              <p className="text-xs" style={{ color: context.length > MAX * 0.9 ? '#f59e0b' : 'var(--text-muted)' }}>
+                {context.length} / {MAX} characters
+              </p>
+              <div className="h-1 w-24 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${(context.length / MAX) * 100}%`,
+                    background: context.length > MAX * 0.9 ? '#f59e0b' : 'var(--orange)',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button onClick={save} disabled={loading} className="mp-btn-primary flex-1 py-3">
+                {loading ? 'Saving…' : 'Continue →'}
+              </button>
+              <Link to="/dashboard" className="mp-btn-ghost flex-1 py-3 text-center text-sm">
+                Skip for now
+              </Link>
+            </div>
+          </div>
         </div>
-      </div>
-    </PageShell>
+      </motion.div>
+    </div>
   )
 }

@@ -1,9 +1,41 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import PageShell from '../components/PageShell'
+import MouseGlow from '../components/MouseGlow'
+import PageBackground from '../components/PageBackground'
 import api from '../api'
+
+function StepBar({ step }) {
+  return (
+    <div className="flex items-center gap-2 mb-8">
+      {[1, 2, 3].map((s) => (
+        <div key={s} className="flex items-center gap-2">
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{
+              background: s <= step ? 'var(--orange)' : 'var(--bg-card)',
+              border: '1.5px solid var(--border)',
+              color: s <= step ? '#fff' : 'var(--text-muted)',
+            }}
+          >
+            {s < step ? '✓' : s}
+          </div>
+          {s < 3 && (
+            <div
+              className="w-16 h-0.5"
+              style={{ background: s < step ? 'var(--orange)' : 'var(--border)' }}
+            />
+          )}
+        </div>
+      ))}
+      <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+        Step {step} of 3
+      </span>
+    </div>
+  )
+}
 
 export default function OnboardingPhoto() {
   const [file, setFile] = useState(null)
@@ -11,11 +43,11 @@ export default function OnboardingPhoto() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const onDrop = useCallback((acceptedFiles) => {
-    const selected = acceptedFiles[0]
-    if (!selected) return
-    setFile(selected)
-    setPreview(URL.createObjectURL(selected))
+  const onDrop = useCallback((accepted) => {
+    const f = accepted[0]
+    if (!f) return
+    setFile(f)
+    setPreview(URL.createObjectURL(f))
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -24,60 +56,93 @@ export default function OnboardingPhoto() {
     maxSize: 10 * 1024 * 1024,
   })
 
-  const uploadPhoto = async () => {
-    if (!file) return toast.error('Please upload a photo first')
+  const upload = async () => {
+    if (!file) return toast.error('Please select a photo first')
     setLoading(true)
     try {
-      const formData = new FormData()
-      formData.append('photo', file)
-      await api.post('/api/upload-photo', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      toast.success('Photo uploaded successfully')
+      const fd = new FormData()
+      fd.append('photo', file)
+      await api.post('/api/upload-photo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      toast.success('Photo uploaded!')
       navigate('/onboarding/context')
-    } catch (error) {
-      toast.error(error?.response?.data?.error || 'Upload failed')
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'Upload failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <PageShell title="Upload Your Photo">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-6 h-2 rounded bg-gray-200 dark:bg-gray-700">
-          <div className="h-2 w-1/3 rounded bg-blue-500" />
+    <div style={{ background: 'var(--bg)', color: 'var(--text-primary)' }} className="min-h-screen flex items-center justify-center p-4">
+      <PageBackground />
+      <MouseGlow />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 w-full max-w-lg"
+      >
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="text-2xl font-bold mb-1">
+            <span style={{ color: 'var(--text-primary)' }}>Meeting</span>
+            <span style={{ color: 'var(--orange)' }}>Proxy</span>
+          </div>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Account Setup</p>
         </div>
-        <p className="mb-6 text-gray-600 dark:text-gray-300">Step 1 of 3 (33%)</p>
-        <p className="mb-6 text-gray-600 dark:text-gray-300">
-          This photo will be used to create your AI avatar
-        </p>
 
         <div
-          {...getRootProps()}
-          className="cursor-pointer rounded-xl border-2 border-dashed border-gray-300 p-10 text-center dark:border-gray-600"
+          className="mp-card p-8"
+          style={{ boxShadow: 'var(--shadow-card)', background: 'var(--bg-card)' }}
         >
-          <input {...getInputProps()} />
-          {isDragActive ? 'Drop your photo here...' : 'Drag and drop photo here, or click to select'}
+          {/* Top glow */}
+          <div className="absolute inset-0 rounded-2xl pointer-events-none overflow-hidden">
+            <div style={{ background: 'radial-gradient(circle at 50% 0%, rgba(255,107,53,0.12), transparent 60%)', height: '100%' }} />
+          </div>
+
+          <div className="relative z-10">
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2">
+              <span className="mp-badge px-5 py-1.5 text-xs">SETUP</span>
+            </div>
+
+            <StepBar step={1} />
+
+            <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Upload Your Photo</h2>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+              This photo will be used to create your AI avatar. Use a clear, front-facing photo.
+            </p>
+
+            {/* Dropzone */}
+            <div
+              {...getRootProps()}
+              className="cursor-pointer rounded-xl p-8 text-center transition-all duration-200"
+              style={{
+                border: `2px dashed ${isDragActive ? 'var(--orange)' : 'var(--border)'}`,
+                background: isDragActive ? 'rgba(255,107,53,0.05)' : 'var(--bg-input)',
+              }}
+            >
+              <input {...getInputProps()} />
+              {preview ? (
+                <img src={preview} alt="preview" className="mx-auto w-32 h-32 rounded-xl object-cover mb-3" style={{ border: '2px solid var(--orange)' }} />
+              ) : (
+                <div className="mb-3 text-4xl">📷</div>
+              )}
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                {isDragActive ? 'Drop it here!' : preview ? 'Click to change photo' : 'Drag & drop or click to select'}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>JPG, PNG · Max 10 MB</p>
+            </div>
+
+            <button
+              onClick={upload}
+              disabled={loading || !file}
+              className="mp-btn-primary w-full mt-6 py-3"
+            >
+              {loading ? 'Uploading…' : 'Continue →'}
+            </button>
+          </div>
         </div>
-
-        {preview && (
-          <img src={preview} alt="Preview" className="mt-4 h-40 w-40 rounded-xl object-cover" />
-        )}
-
-        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          Supported formats: JPG, PNG (max 10MB)
-        </p>
-
-        <button
-          type="button"
-          onClick={uploadPhoto}
-          disabled={loading}
-          className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-        >
-          {loading ? 'Uploading...' : 'Continue'}
-        </button>
-      </div>
-    </PageShell>
+      </motion.div>
+    </div>
   )
 }

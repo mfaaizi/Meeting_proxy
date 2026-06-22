@@ -1,20 +1,43 @@
 import { motion } from 'framer-motion'
-import Navbar from './Navbar'
+import Sidebar from './Sidebar'
+import PageBackground from './PageBackground'
+import MouseGlow from './MouseGlow'
 
-export default function PageShell({ title, children }) {
-  // Shared page wrapper adds Navbar and a subtle motion transition.
+export default function PageShell({ title, subtitle, children, noPad = false }) {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white">
-      <Navbar />
-      <motion.main
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        className="mx-auto max-w-7xl px-4 py-8 sm:px-6"
-      >
-        {title && <h1 className="mb-6 text-3xl font-bold">{title}</h1>}
-        {children}
-      </motion.main>
+    <div style={{ background: 'var(--bg)' }} className="min-h-screen">
+      <PageBackground />
+      <MouseGlow />
+      <Sidebar />
+
+      {/* Main content area offset by sidebar width on desktop */}
+      <div className="mp-layout">
+        {/* Mobile top spacing */}
+        <div className="md:hidden h-14" />
+
+        <motion.main
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className={noPad ? '' : 'px-4 sm:px-6 lg:px-8 py-8 max-w-6xl mx-auto'}
+        >
+          {(title || subtitle) && (
+            <div className="mb-8">
+              {title && (
+                <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                  {title}
+                </h1>
+              )}
+              {subtitle && (
+                <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          )}
+          {children}
+        </motion.main>
+      </div>
     </div>
   )
 }

@@ -26,6 +26,11 @@ class User(db.Model):
     context = db.Column(db.Text, nullable=True)
     meet_link = db.Column(db.String(300), nullable=True)
 
+    # Voice settings — ElevenLabs custom voice
+    voice_id = db.Column(db.String(200), nullable=True)
+    voice_name = db.Column(db.String(100), nullable=True)
+    voice_provider = db.Column(db.String(50), default="microsoft")
+
     # Account timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
@@ -69,6 +74,9 @@ class User(db.Model):
             "photo_url": self.photo_url,
             "context": self.context,
             "meet_link": self.meet_link,
+            "voice_id": self.voice_id,
+            "voice_name": self.voice_name,
+            "voice_provider": self.voice_provider or "microsoft",
             "created_at": self.created_at.isoformat(),
         }
 

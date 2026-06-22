@@ -273,8 +273,8 @@ def pregenerate_library(image_url: str, context: str,
             generated += 1
             print(f"[Library] ✅ Done: '{question}'")
 
-            # Wait 2 seconds between D-ID calls to avoid rate limits
-            time.sleep(2)
+            # Wait 5 seconds between D-ID calls to avoid rate limits
+            time.sleep(5)
 
         except Exception as e:
             print(f"[Library] ❌ Failed '{question}': {e}")
