@@ -180,7 +180,7 @@ def clone_voice(name: str, audio_files: list) -> dict:
         file_objects.append(open(path, "rb"))
 
     try:
-        voice = client.voices.add(
+        voice = client.voices.ivc.create(
             name=name,
             files=file_objects,
             description=f"Custom cloned voice: {name}",

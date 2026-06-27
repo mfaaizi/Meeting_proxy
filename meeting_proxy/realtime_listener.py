@@ -312,10 +312,14 @@ def record_question(callback) -> None:
             else:
                 silence_count = 0 # Reset silence counter if speech continues
 
-            # If we've seen enough consecutive silent chunks, the user has finished speaking
-            if silence_count > SILENCE_THRESHOLD:
+            # If we've seen enough consecutive silent chunks, OR if we've recorded too long, process it
+            MAX_SPEECH_CHUNKS = 500 # ~15 seconds max recording
+            if silence_count > SILENCE_THRESHOLD or len(voiced_frames) > MAX_SPEECH_CHUNKS:
                 triggered = False
-                print("Silence detected — processing...")
+                if len(voiced_frames) > MAX_SPEECH_CHUNKS:
+                    print("Max recording limit reached — processing...")
+                else:
+                    print("Silence detected — processing...")
 
                 # Only process the recording if it's long enough to be a real word
                 if len(voiced_frames) >= MIN_SPEECH_CHUNKS:
@@ -364,16 +368,19 @@ def transcribe_audio_bytes(audio_bytes: io.BytesIO) -> str:
     audio_bytes.name = "question.wav"
 
     # Call the Whisper API
-    response = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_bytes,
-        language="en" # Hinting English improves speed and accuracy
-    )
-
-    # Clean up whitespace from the transcript
-    transcript = response.text.strip()
-    print(f"Transcribed: {transcript}")
-    return transcript
+    try:
+        response = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_bytes,
+            language="en" # Hinting English improves speed and accuracy
+        )
+        # Clean up whitespace from the transcript
+        transcript = response.text.strip()
+        print(f"Transcribed: {transcript}")
+        return transcript
+    except Exception as e:
+        print(f"[STT] Transcription error (network issue?): {e}")
+        return ""
 
 def start_listening(on_question_detected) -> None:
     """
@@ -447,9 +454,9 @@ def start_listening(on_question_detected) -> None:
             # by checking against known answer patterns
             transcript_lower_check = normalized
 
-            # Skip very short transcripts (noise)
-            if len(transcript.split()) < 3:
-                print(f"[STT] Too short — noise: '{transcript}'")
+            # Skip very short transcripts (noise) — must be at least 5 meaningful words
+            if len(transcript.split()) < 5:
+                print(f"[STT] Too few words — noise: '{transcript}'")
                 return
 
             # Skip avatar's own answers using phrase detection.
@@ -541,18 +548,11 @@ def start_listening(on_question_detected) -> None:
                 # Check if any trigger word appears in transcript
                 for trigger in AVATAR_TRIGGER_WORDS:
                     trigger_lower = trigger.lower()
-                    # Multi-word trigger (e.g. "tell me")
-                    if ' ' in trigger_lower:
-                        if trigger_lower in transcript_lower:
-                            has_trigger = True
-                            print(f"[STT] Trigger phrase: '{trigger}'")
-                            break
-                    else:
-                        # Single word trigger
-                        if trigger_lower in transcript_words:
-                            has_trigger = True
-                            print(f"[STT] Trigger word: '{trigger}'")
-                            break
+                    # Simple substring match works better for things like "what's"
+                    if trigger_lower in transcript_lower:
+                        has_trigger = True
+                        print(f"[STT] Trigger word matched: '{trigger}'")
+                        break
 
                 if not has_trigger:
                     print(

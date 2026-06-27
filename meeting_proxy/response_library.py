@@ -26,6 +26,9 @@ PREDEFINED_QA = {
     "what is the future scope": None,
     "thank you": None,
     "how does it work": None,
+    "what are your thoughts on using ai in meeting management": None,
+    "how do you think the ai meeting proxy system could benefit students like you": None,
+    "can you explain what specific features of the ai": None,
 }
 
 # Answers for each predefined question
@@ -73,6 +76,15 @@ PREDEFINED_ANSWERS = {
         "transcribes it using Whisper, generates an answer using "
         "GPT-4o, and creates a talking avatar video using D-ID "
         "that plays as my camera feed in the meeting.",
+
+    "what are your thoughts on using ai in meeting management":
+        "I believe that integrating AI into meeting management can significantly enhance efficiency and productivity. It can help streamline the process by providing accurate summaries, tracking key action points, and facilitating better communication among participants. Overall, AI has the potential to transform how we manage and conduct meetings, making them more organized and effective.",
+
+    "how do you think the ai meeting proxy system could benefit students like you":
+        "The AI Meeting Proxy System could significantly benefit students by streamlining the note-taking process during lectures and group discussions. It can provide accurate summaries and highlight key action points, allowing us to focus more on understanding the material rather than worrying about missing details. Additionally, having a reliable assistant can help us manage our time more effectively and improve overall collaboration in team projects.",
+
+    "can you explain what specific features of the ai":
+        "The key features include real-time speech recognition using Whisper, intelligent answering using GPT-4o, and dynamic avatar video generation using D-ID, all integrated directly into Google Meet through a virtual camera.",
 }
 
 def load_library_index() -> dict:
@@ -110,6 +122,10 @@ def generate_session_videos(session_id: int, user_id: int, photo_url: str):
             session_folder = os.path.join(os.getcwd(), "users", str(user_id), "sessions", str(session_id))
             os.makedirs(session_folder, exist_ok=True)
             
+            from database import User
+            user = db.session.get(User, user_id)
+            vid_voice_id = user.voice_id if user and user.voice_provider == "elevenlabs" else None
+            
             qa_list = json.loads(session_record.qa_data)
             status_messages = json.loads(session_record.status_messages)
             
@@ -122,7 +138,7 @@ def generate_session_videos(session_id: int, user_id: int, photo_url: str):
                 db.session.commit()
                 
                 # Generate video using D-ID
-                video_url = generate_avatar_video(photo_url, qa['answer'])
+                video_url = generate_avatar_video(photo_url, qa['answer'], voice_id=vid_voice_id)
                 
                 # Download and save to session folder
                 filename = f"video_{i}.mp4"
@@ -139,7 +155,7 @@ def generate_session_videos(session_id: int, user_id: int, photo_url: str):
             db.session.commit()
             
             # Generate a short nodding video with a subtle sound
-            idle_video_url = generate_avatar_video(photo_url, "...") 
+            idle_video_url = generate_avatar_video(photo_url, "...", voice_id=None) 
             idle_filename = "idle.mp4"
             idle_local_path = os.path.join(session_folder, idle_filename)
             download_video(idle_video_url, idle_local_path)
@@ -185,23 +201,32 @@ def get_video_for_question(question: str) -> str | None:
                 print(f"[Library] Fuzzy match: '{key}'")
                 return path
 
-    # Keyword match — check for key words
+    # Keyword match — check for key words (specific, not single generic words)
     keywords_map = {
-        "name": "what is your name",
-        "yourself": "tell me about yourself",
+        "your name": "what is your name",
+        "about yourself": "tell me about yourself",
+        "introduce yourself": "tell me about yourself",
         "fyp": "what is your fyp about",
-        "project": "what is your fyp about",
+        "final year": "what is your fyp about",
+        "your project": "what is your fyp about",
         "technologies": "what technologies did you use",
         "tech stack": "what technologies did you use",
-        "tools": "what technologies did you use",
-        "experience": "what is your experience",
-        "skills": "what are your skills",
-        "why": "why did you choose this project",
-        "future": "what is the future scope",
-        "scope": "what is the future scope",
-        "thank": "thank you",
-        "work": "how does it work",
-        "how": "how does it work",
+        "tools used": "what technologies did you use",
+        "your experience": "what is your experience",
+        "your skills": "what are your skills",
+        "choose this": "why did you choose this project",
+        "why this project": "why did you choose this project",
+        "future scope": "what is the future scope",
+        "future plans": "what is the future scope",
+        "thank you": "thank you",
+        "how does it work": "how does it work",
+        "how it works": "how does it work",
+        "how does this work": "how does it work",
+        "thoughts on using ai": "what are your thoughts on using ai in meeting management",
+        "ai in meeting management": "what are your thoughts on using ai in meeting management",
+        "benefit students like you": "how do you think the ai meeting proxy system could benefit students like you",
+        "specific features of the ai": "can you explain what specific features of the ai",
+        "features of the ai": "can you explain what specific features of the ai",
     }
 
     for keyword, mapped_question in keywords_map.items():
@@ -219,7 +244,7 @@ def get_video_for_question(question: str) -> str | None:
     return None
 
 def pregenerate_library(image_url: str, context: str,
-                        name: str = "Rafeh") -> None:
+                        name: str = "Rafeh", voice_id: str = None) -> None:
     """
     Pre-generates avatar videos for all predefined questions.
     Skips questions that already have a video on disk.
@@ -261,7 +286,7 @@ def pregenerate_library(image_url: str, context: str,
             print(f"[Library] Answer: '{answer[:60]}...'")
 
             # Generate D-ID avatar video
-            video_url = generate_avatar_video(image_url, answer)
+            video_url = generate_avatar_video(image_url, answer, voice_id=voice_id)
 
             # Download to library folder
             download_video(video_url, video_path)

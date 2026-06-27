@@ -1,4 +1,7 @@
 import os
+import ssl
+import time
+import urllib.request
 import requests
 import subprocess
 
@@ -13,15 +16,39 @@ def download_video(video_url: str, save_path: str) -> None:
     Used by both response_library and realtime_pipeline.
     """
     print(f"[Utils] Downloading video...")
-    response = requests.get(video_url, stream=True, timeout=60)
-    response.raise_for_status()
 
-    with open(save_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-
-    file_size = os.path.getsize(save_path)
-    print(f"[Utils] Downloaded: {file_size} bytes")
+    for attempt in range(3):
+        try:
+            # Primary: use FFmpeg to download — it bypasses Windows WinError 10054
+            # that affects both requests and urllib on AWS S3 connections.
+            # FFmpeg is already installed and handles large video streams natively.
+            result = subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-user_agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36",
+                    "-i", video_url,
+                    "-c", "copy",
+                    save_path
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            if result.returncode != 0:
+                raise Exception(
+                    f"FFmpeg download failed: {result.stderr[-200:]}"
+                )
+            file_size = os.path.getsize(save_path)
+            print(f"[Utils] Downloaded via FFmpeg: {file_size} bytes")
+            break
+        except Exception as e:
+            if attempt == 2:
+                raise e
+            print(f"[Utils] Download failed (attempt {attempt+1}/3): {e}. Retrying...")
+            time.sleep(3)
 
     # Verify audio exists
     info = check_video_audio(save_path)

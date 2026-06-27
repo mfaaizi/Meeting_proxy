@@ -869,10 +869,17 @@ def run_meet_bot(
         from response_library import pregenerate_library
 
         def generate_library_background():
+            from app import app, db
+            from database import User
+            with app.app_context():
+                user = db.session.get(User, user_id) if user_id else None
+                vid_voice_id = user.voice_id if user and user.voice_provider == "elevenlabs" else None
+                
             pregenerate_library(
                 image_url=avatar_image,
                 context=context,
-                name=name
+                name=name,
+                voice_id=vid_voice_id
             )
 
         lib_thread = _threading.Thread(

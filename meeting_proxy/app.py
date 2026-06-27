@@ -489,7 +489,7 @@ def pregenerate():
 
     def run_pregenerate():
         from response_library import pregenerate_library
-        pregenerate_library(image_url, context, name)
+        pregenerate_library(image_url, context, name, voice_id=(user.voice_id if user.voice_provider == 'elevenlabs' else None))
 
     thread = threading.Thread(target=run_pregenerate, daemon=True)
     thread.start()
@@ -898,7 +898,7 @@ def generate_library():
     # For now, we'll use a background thread as in the existing 'pregenerate' route.
     def run_gen():
         from response_library import pregenerate_library
-        pregenerate_library(user_photo_url, user_context, user_name)
+        pregenerate_library(user_photo_url, user_context, user_name, voice_id=(user.voice_id if user.voice_provider == 'elevenlabs' else None))
         
     threading.Thread(target=run_gen, daemon=True).start()
     return jsonify({"message": "Generation started"})
@@ -1243,8 +1243,9 @@ def generate_prep_videos():
                 )
 
                 try:
+                    vid_voice_id = user.voice_id if user.voice_provider == "elevenlabs" else None
                     video_url = generate_avatar_video(
-                        user.photo_url, qa['answer']
+                        user.photo_url, qa['answer'], voice_id=vid_voice_id
                     )
                     safe_name = f"q{i+1}.mp4"
                     video_path = os.path.join(
@@ -1316,7 +1317,8 @@ def generate_prep_videos():
                     # Generate new idle — use minimal text
                     nodding_url = generate_avatar_video(
                         user.photo_url,
-                        "."
+                        ".",
+                        voice_id=None
                     )
                     nodding_path = os.path.join(
                         session_folder, "nodding_idle.mp4"

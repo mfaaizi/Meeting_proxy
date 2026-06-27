@@ -183,6 +183,96 @@ def set_browser_source(video_filename: str) -> bool:
         _obs_client = None
         return False
 
+
+def set_browser_source_from_url(video_url: str) -> bool:
+    """
+    Plays a video directly from a remote URL (e.g. AWS S3) in OBS browser.
+    
+    This bypasses all Python download code entirely.
+    Chrome inside OBS fetches the video from S3 directly using its own
+    network stack — unaffected by Windows socket blocks that affect Python.
+    
+    Returns True on success.
+    """
+    global _obs_client
+
+    if _obs_client is None:
+        print("[OBS] Not connected — reconnecting...")
+        if not connect_obs():
+            return False
+
+    try:
+        # Embed the remote URL directly into the video src
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    body {{ background: black; overflow: hidden; width: 100vw; height: 100vh; }}
+    video {{
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        display: block;
+    }}
+</style>
+</head>
+<body>
+    <video id="v" autoplay playsinline>
+        <source src="{video_url}" type="video/mp4">
+    </video>
+    <script>
+        const v = document.getElementById('v');
+        v.muted = false;
+        v.volume = 1.0;
+        v.play().catch(e => {{
+            setTimeout(() => {{ v.muted = false; v.play(); }}, 500);
+        }});
+    </script>
+</body>
+</html>"""
+
+        html_path = os.path.join(
+            os.getcwd(), "static", "avatar_player.html"
+        )
+        os.makedirs(os.path.dirname(html_path), exist_ok=True)
+        with open(html_path, 'w') as f:
+            f.write(html_content)
+
+        page_url = f"{FLASK_URL}/avatar-player?t={int(time.time())}"
+
+        _obs_client.set_input_settings(
+            name=BROWSER_SOURCE_NAME,
+            settings={
+                'url': page_url,
+                'width': 640,
+                'height': 480,
+                'css': '',
+                'restart_when_active': True,
+                'shutdown': False,
+                'reroute_audio': True,
+            },
+            overlay=True
+        )
+
+        time.sleep(1)
+
+        try:
+            _obs_client.press_input_properties_button(
+                input_name=BROWSER_SOURCE_NAME,
+                prop_name='refreshnocache'
+            )
+        except:
+            pass
+
+        print(f"[OBS] Playing remote URL directly in browser (no download)")
+        return True
+
+    except Exception as e:
+        print(f"[OBS] Remote URL playback failed: {e}")
+        _obs_client = None
+        return False
+
 def set_idle_photo(image_url: str) -> bool:
     """
     Shows a static photo in OBS — truly idle state.

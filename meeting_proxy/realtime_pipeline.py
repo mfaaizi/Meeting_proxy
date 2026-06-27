@@ -386,19 +386,35 @@ def run_realtime_pipeline(transcript: str) -> None:
         print(f"[Pipeline] 🎬 Creating D-ID video...")
 
         try:
-            video_url = generate_avatar_video(
-                _image_url, answer, voice_id=_voice_id
-            )
-            import hashlib, shutil
-            q_hash = hashlib.md5(
-                cache_key.encode()
-            ).hexdigest()[:8]
-            cached_mp4 = os.path.join(
-                os.getcwd(), f"cache_{q_hash}.mp4"
-            )
-            download_video(video_url, cached_mp4)
-            shutil.copy2(cached_mp4, MP4_PATH)
-            _answer_cache[cache_key] = cached_mp4
+            # Check if we already have the video URL cached from a previous attempt
+            _url_cache = getattr(run_realtime_pipeline, '_url_cache', {})
+
+            if cache_key in _url_cache:
+                video_url = _url_cache[cache_key]
+                print(f"[Pipeline] 🔁 Reusing cached URL (no D-ID credit used)")
+            else:
+                video_url = generate_avatar_video(
+                    _image_url, answer, voice_id=_voice_id
+                )
+                # Cache URL immediately — if playback fails we won't re-call D-ID
+                _url_cache[cache_key] = video_url
+                run_realtime_pipeline._url_cache = _url_cache
+
+            # Play directly in OBS browser from S3 URL — no download needed.
+            # Chrome inside OBS has its own network stack and connects to S3
+            # without the WinError 10054 that affects Python sockets.
+            print(f"[Pipeline] ▶️  Playing D-ID video directly in OBS browser...")
+            import time as _t
+            from obs_service import set_browser_source_from_url
+
+            # Estimate duration: average D-ID video is ~6-10 seconds
+            # We wait based on answer length (approx 1 word/sec at normal pace)
+            word_count = len(answer.split())
+            est_duration = max(6.0, min(word_count * 0.55, 30.0))
+
+            set_browser_source_from_url(video_url)
+            # Clear URL from cache after successful playback start
+            _url_cache.pop(cache_key, None)
 
             # Log to meeting transcript
             _meeting_transcript.append({
@@ -407,14 +423,11 @@ def run_realtime_pipeline(transcript: str) -> None:
                 'timestamp': _time.strftime('%H:%M:%S')
             })
 
-            print(f"[Pipeline] ✅ New video generated and cached!")
-            from meet_bot import play_and_wait
-            play_and_wait(cached_mp4)
-            import time
-            time.sleep(0.5)
+            print(f"[Pipeline] ⏳ Waiting {est_duration:.1f}s for video to play...")
+            _t.sleep(est_duration)
+            print(f"[Pipeline] ✅ Response complete!")
             from meet_bot import _user_image_url
             set_idle_state(_user_image_url)
-            print(f"[Pipeline] ✅ Response complete!")
 
         except Exception as e:
             print(f"[Pipeline] ❌ D-ID generation failed: {e}")

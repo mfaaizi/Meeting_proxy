@@ -164,19 +164,21 @@ def create_talk_with_key(
 def poll_talk_with_key(
     api_key: str,
     talk_id: str,
-    max_wait: int = 90
+    max_wait: int = 120
 ) -> str:
     """
     Polls D-ID for talk completion using specific API key.
     Returns result_url when done.
     """
     headers = get_headers(api_key)
-    elapsed = 0
+    import time as _time
+    start_time = _time.time()
 
-    while elapsed < max_wait:
+    while (_time.time() - start_time) < max_wait:
         response = requests.get(
             f"{DID_API_URL}/talks/{talk_id}",
-            headers=headers
+            headers=headers,
+            timeout=10
         )
         response.raise_for_status()
         data = response.json()
@@ -192,9 +194,8 @@ def poll_talk_with_key(
             raise Exception(f"D-ID talk failed: {data}")
 
         time.sleep(3)
-        elapsed += 3
 
-    raise TimeoutError("D-ID video generation timed out")
+    raise TimeoutError(f"D-ID video generation timed out after {max_wait}s")
 
 def create_talk(
     image_url: str,
@@ -207,7 +208,7 @@ def create_talk(
     """
     return create_talk_with_key(api_key, image_url, text, audio_url=audio_url)
 
-def poll_talk_status(talk_id: str, max_wait: int = 90, api_key: str = None) -> str:
+def poll_talk_status(talk_id: str, max_wait: int = 120, api_key: str = None) -> str:
     """
     Polls for talk completion using the provided API key.
     """
@@ -257,7 +258,6 @@ def generate_avatar_video(
             audio_url = upload_audio(audio_path)
 
             # Step 3: Clean up local audio file
-            import os
             if os.path.exists(audio_path):
                 os.remove(audio_path)
                 print(f"[D-ID] Cleaned up temp audio file")
