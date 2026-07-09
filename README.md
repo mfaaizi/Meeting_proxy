@@ -24,7 +24,7 @@
 
 ##  Demo
 
-[![MeetingProxy Demo](https://img.youtube.com/vi/v7Gd4z5lDS8/maxresdefault.jpg)](https://www.youtube.com/watch?v=v7Gd4z5lDS8)
+[![MeetingProxy Demo](https://img.youtube.com/vi/v7Gd4z5lDS8/maxresdefault.jpg)]([https://www.youtube.com/watch?v=v7Gd4z5lDS8](https://youtu.be/uFs-ezIrIic))
 
 >  *Watch MeetingProxy autonomously join a live Google Meet call, listen to the conversation, generate a contextual response, and reply back with a lip-synced AI avatar — in real time.*
 
