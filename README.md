@@ -33,7 +33,7 @@ https://youtu.be/uFs-ezIrIic
 ##  What is MeetingProxy?
 
 **MeetingProxy** is an autonomous AI agent that joins Google Meet sessions on your behalf. It listens to the conversation in real time, understands context using an LLM, and responds naturally through a lip-synced digital avatar with a cloned voice — effectively acting as a **digital twin** in meetings you can't attend.
-
+it is basically a fully functional server or plateform which enables the user to achive or make a digital clone with no effort. and it self joins the meeting and itself adjust the mic and camra settings
 Built as a Final Year Project, MeetingProxy explores the intersection of **conversational AI, real-time audio/video pipelines, and browser automation**.
 
 ---
