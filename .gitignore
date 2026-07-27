@@ -45,7 +45,12 @@ silent.wav
 test_avatar.mp4
 test_face.png
 test_image.jpg
+# Environment files
+.env
+.env.*
+meeting_proxy/.env
 
-# NOTE: .env is NOT ignored because the user explicitly asked to push it.
-# However, this is generally NOT recommended for security reasons.
-# .env 
+# Virtual environments
+.venv/
+venv/
+ENV/
