@@ -26,7 +26,7 @@
 
 https://youtu.be/uFs-ezIrIic
 
->  *Watch MeetingProxy autonomously join a live Google Meet call, listen to the conversation, generate a contextual response, and reply back with a lip-synced AI avatar — in real time.*
+>  *Watch MeetingProxy autonomously join a live Google Meet call, listen to the conversation, generate a contextual response, and reply back with a lip-synced AI avatar — in real time.Meeting Proxy is the ultimate plateform where the user just had to upload the knowledge base, and the essential items for the avatr generation. The rest will toke place autonomously via selinium and meeting bot.*
 
 ---
 
