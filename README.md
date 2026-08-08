@@ -26,7 +26,7 @@
 ## 🎥 Demo
 
 <p align="center">
-  <a href="https://youtu.be/uFs-ezIrIic">
+  href="https://youtu.be/uFs-ezIrIic"
     <img src="docs/demo.gif" width="900" alt="MeetingProxy Demo">
   </a>
 </p>
